@@ -36,11 +36,10 @@ def load_image_into_numpy_array(path):
     Returns:
       uint8 numpy array with shape (img_height, img_width, 3)
     """
-    img_data = tf.io.gfile.GFile(path, 'rb').read()
+    img_data = tf.io.gfile.GFile(path, "rb").read()
     image = Image.open(BytesIO(img_data))
     (im_width, im_height) = image.size
-    return np.array(image.getdata()).reshape(
-        (im_height, im_width, 3)).astype(np.uint8)
+    return np.array(image.getdata()).reshape((im_height, im_width, 3)).astype(np.uint8)
 
 
 def run_inference_for_single_image(model, image):
@@ -55,22 +54,26 @@ def run_inference_for_single_image(model, image):
     # All outputs are batches tensors.
     # Convert to numpy arrays, and take index [0] to remove the batch dimension.
     # We're only interested in the first num_detections.
-    num_detections = int(output_dict.pop('num_detections'))
-    output_dict = {key: value[0, :num_detections].numpy()
-                   for key, value in output_dict.items()}
-    output_dict['num_detections'] = num_detections
+    num_detections = int(output_dict.pop("num_detections"))
+    output_dict = {
+        key: value[0, :num_detections].numpy() for key, value in output_dict.items()
+    }
+    output_dict["num_detections"] = num_detections
 
     # detection_classes should be ints.
-    output_dict['detection_classes'] = output_dict['detection_classes'].astype(np.int64)
+    output_dict["detection_classes"] = output_dict["detection_classes"].astype(np.int64)
 
     # Handle models with masks:
-    if 'detection_masks' in output_dict:
+    if "detection_masks" in output_dict:
         # Reframe the the bbox mask to the image size.
         detection_masks_reframed = utils_ops.reframe_box_masks_to_image_masks(
-            output_dict['detection_masks'], output_dict['detection_boxes'],
-            image.shape[0], image.shape[1])
+            output_dict["detection_masks"],
+            output_dict["detection_boxes"],
+            image.shape[0],
+            image.shape[1],
+        )
         detection_masks_reframed = tf.cast(detection_masks_reframed > 0.5, tf.uint8)
-        output_dict['detection_masks_reframed'] = detection_masks_reframed.numpy()
+        output_dict["detection_masks_reframed"] = detection_masks_reframed.numpy()
 
     return output_dict
 
@@ -78,7 +81,7 @@ def run_inference_for_single_image(model, image):
 def run_inference(model, category_index, image_path):
     if os.path.isdir(image_path):
         image_paths = []
-        for file_extension in ('*.png', '*jpg'):
+        for file_extension in ("*.png", "*jpg"):
             image_paths.extend(glob.glob(os.path.join(image_path, file_extension)))
 
         """add iterator here"""
@@ -90,18 +93,21 @@ def run_inference(model, category_index, image_path):
             # Visualization of the results of a detection.
             vis_util.visualize_boxes_and_labels_on_image_array(
                 image_np,
-                output_dict['detection_boxes'],
-                output_dict['detection_classes'],
-                output_dict['detection_scores'],
+                output_dict["detection_boxes"],
+                output_dict["detection_classes"],
+                output_dict["detection_scores"],
                 category_index,
-                instance_masks=output_dict.get('detection_masks_reframed', None),
+                instance_masks=output_dict.get("detection_masks_reframed", None),
                 use_normalized_coordinates=True,
-                line_thickness=8)
+                line_thickness=8,
+            )
             """The existing plt lines do not work on local pc as they are not setup for GUI
                 Use plt.savefig() to save the results instead and view them in a folder"""
             plt.imshow(image_np)
             # plt.show()
-            plt.savefig("outputs/detection_output{}.png".format(i))  # make sure to make an outputs folder
+            plt.savefig(
+                "outputs/detection_output{}.png".format(i)
+            )  # make sure to make an outputs folder
             i = i + 1
     # else:
     #     image_np = load_image_into_numpy_array(image_path)
@@ -121,15 +127,23 @@ def run_inference(model, category_index, image_path):
     #     plt.show()
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Detect objects inside webcam videostream')
-    parser.add_argument('-m', '--model', type=str, required=True, help='Model Path')
-    parser.add_argument('-l', '--labelmap', type=str, required=True, help='Path to Labelmap')
-    parser.add_argument('-i', '--image_path', type=str, required=True, help='Path to image (or folder)')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Detect objects inside webcam videostream"
+    )
+    parser.add_argument("-m", "--model", type=str, required=True, help="Model Path")
+    parser.add_argument(
+        "-l", "--labelmap", type=str, required=True, help="Path to Labelmap"
+    )
+    parser.add_argument(
+        "-i", "--image_path", type=str, required=True, help="Path to image (or folder)"
+    )
     args = parser.parse_args()
 
     detection_model = load_model(args.model)
-    category_index = label_map_util.create_category_index_from_labelmap(args.labelmap, use_display_name=True)
+    category_index = label_map_util.create_category_index_from_labelmap(
+        args.labelmap, use_display_name=True
+    )
 
     run_inference(detection_model, category_index, args.image_path)
 
